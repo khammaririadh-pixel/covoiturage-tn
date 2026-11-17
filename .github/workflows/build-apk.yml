@@ -1,0 +1,55 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install packages
+        run: |
+          npm install
+          npx expo install --fix
+
+      - name: Generate the native Android project
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Build the APK
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Rename the APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk covoiturage-tn.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: covoiturage-tn-apk
+          path: covoiturage-tn.apk
+
+      # Public download link that always points to the newest build:
+      # https://github.com/<owner>/<repo>/releases/latest/download/covoiturage-tn.apk
+      - name: Publish as a release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Covoiturage TN - build ${{ github.run_number }}
+          make_latest: true
+          files: covoiturage-tn.apk
